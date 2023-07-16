@@ -10,15 +10,16 @@ async function getReads(query) {
 
     try {
         console.log("Spajanje na goodreads")
+        console.log("query: ", query)
         const responseSearch = await axios.get(`https://www.goodreads.com/search?q=${query}`);
         let $ = load(responseSearch.data)
-        const bookTitle = $(".bookTitle:first").attr("href");
+        const bookHref = $(".bookTitle:first").attr("href");
         const authorName = $(".authorName:first").text()
-        //console.log("authorName: ", authorName)
-        if (bookTitle === undefined) {
+        console.log("authorName: ", authorName)
+        if (bookHref === undefined) {
             throw new Error("Knjiga nije nađena!");
         }
-        const bookLink = "https://www.goodreads.com" + bookTitle
+        const bookLink = "https://www.goodreads.com" + bookHref
         //console.log("bookLink: ", bookLink)
 
 
@@ -39,6 +40,9 @@ async function getReads(query) {
         const yearPublic = $('.FeaturedDetails [data-testid="publicationInfo"]').text()
         let splitted = yearPublic.split(",")
 
+        const bookTitle = $('[data-testid="bookTitle"]').text()
+        console.log("bookTitle: ", bookTitle)
+
         let desc = $(".DetailsLayoutRightParagraph__widthConstrained").text()
         //console.log(desc)
 
@@ -54,7 +58,10 @@ async function getReads(query) {
 
         let pages = pagesArray.split(" ")
 
+        console.log("Gotovo")
+
         return {
+            title: bookTitle,
             imageUrl: imageUrl,
             year: splitted[1].trim(),
             description: desc,

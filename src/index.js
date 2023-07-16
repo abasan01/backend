@@ -1,6 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import storage from './memory_storage'
 import connect from "./db.js"
 import {
     getReads
@@ -15,18 +14,48 @@ app.use(express.json())
 //getReads("Oliver Twist").then((result) => console.log(result))
 
 
-
-app.post('/upload', (req, res) => {
-
-    console.log(req.body)
+app.post('/add', async (req, res) => {
 
     let upload = req.body
+    console.log(upload)
 
-    let data = storage.knjige
+    let db = await connect();
 
-    data.push(upload)
+    let data = await db.collection("knjige").insertOne(upload)
 
-    res.json(upload)
+    if (data && data.acknowledged) {
+
+        const readVars = await getReads(upload.title)
+
+        if (readVars) {
+            console.log(data.insertedId)
+            await db.collection("knjige").updateOne({
+                _id: data.insertedId
+            }, {
+                $set: {
+                    title: readVars.title,
+                    imageUrl: readVars.imageUrl,
+                    year: readVars.year,
+                    description: readVars.description,
+                    genre: readVars.genre,
+                    author: readVars.author,
+                    pages: readVars.pages
+                }
+            });
+            console.log(data.insertedId)
+            let result = await db.collection("knjige").findOne({
+                _id: data.insertedId
+            })
+            console.log(result)
+            res.json(result)
+
+        }
+    } else {
+        res.json({
+            status: "fail"
+        })
+    }
+
 });
 
 app.get('/setall', async (req, res) => {
@@ -48,6 +77,7 @@ app.get('/setall', async (req, res) => {
                     _id: doc._id
                 }, {
                     $set: {
+                        title: readVars.title,
                         imageUrl: readVars.imageUrl,
                         year: readVars.year,
                         description: readVars.description,
@@ -97,6 +127,7 @@ app.get('/setmissing', async (req, res) => {
                         _id: doc._id
                     }, {
                         $set: {
+                            title: readVars.title,
                             imageUrl: readVars.imageUrl,
                             year: readVars.year,
                             description: readVars.description,
@@ -174,8 +205,6 @@ app.get("/knjige/:id", async (req, res) => {
         var mongo = require('mongodb');
         var o_id = new mongo.ObjectId(id);
 
-        console.log(o_id)
-
         let db = await connect();
 
         let data = await db.collection("knjige").findOne({
@@ -190,10 +219,5 @@ app.get("/knjige/:id", async (req, res) => {
 
 
 })
-
-
-
-
-console.log("test")
 
 app.listen(port, () => console.log(`Slušam na portu ${port}!`))

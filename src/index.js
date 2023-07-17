@@ -4,6 +4,7 @@ import connect from "./db.js"
 import {
     getReads
 } from "./goodreads"
+import auth from "./auth.js"
 
 const app = express()
 const port = 3000
@@ -13,6 +14,42 @@ app.use(express.json())
 
 //getReads("Oliver Twist").then((result) => console.log(result))
 
+app.get('/tajna', [auth.verify], async (req, res) => {
+    console.log("hello?")
+    res.json({
+        message: "ovo je tajna" + req.jwt.email
+    })
+
+})
+
+app.post('/auth', async (req, res) => {
+    const user = req.body
+
+    try {
+        const result = await auth.authenticateUser(user.email, user.password); {
+            console.log("ok")
+        }
+        res.json(result)
+    } catch (e) {
+        res.status(403).json({
+            error: e.message
+        })
+    }
+
+})
+
+app.post('/users', async (req, res) => {
+    const user = req.body
+    try {
+        let savedDoc = await auth.registerUser(user)
+        res.json(savedDoc)
+    } catch (e) {
+        res.status(500).send({
+            error: e.message
+        })
+    }
+
+})
 
 app.post('/add', async (req, res) => {
 

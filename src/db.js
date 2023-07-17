@@ -1,8 +1,9 @@
 import {
     MongoClient
 } from "mongodb"
-
-const connection_string = "mongodb+srv://andrija3000:admin@knjigogram.m2asola.mongodb.net/?retryWrites=true&w=majority";
+import "dotenv/config";
+console.log(process.env.MONGO_AUTH)
+const connection_string = `mongodb+srv://andrija3000:${process.env.MONGO_AUTH}@knjigogram.m2asola.mongodb.net/?retryWrites=true&w=majority`;
 
 let client = new MongoClient(connection_string);
 

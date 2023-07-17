@@ -25,6 +25,8 @@ app.get('/tajna', [auth.verify], async (req, res) => {
 app.post('/auth', async (req, res) => {
     const user = req.body
 
+    console.log(user)
+
     try {
         const result = await auth.authenticateUser(user.email, user.password); {
             console.log("ok")
@@ -195,7 +197,7 @@ app.get('/setmissing', async (req, res) => {
 
 });
 
-app.get('/knjige', async (req, res) => {
+app.get('/knjige', [auth.verify], async (req, res) => {
     let searchTerm = req.query.search
     let search = {
         $and: [{}]

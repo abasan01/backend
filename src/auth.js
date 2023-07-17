@@ -39,8 +39,6 @@ export default {
             email: email
         })
 
-        console.log("hello?")
-
         if (user && user.password && (await bcrypt.compare(password, user.password))) {
 
             const token = jwt.sign(user, String(process.env.JWT_SECRET), {
@@ -63,7 +61,6 @@ export default {
                 const auth = req.headers.authorization.split(" ")
                 const type = auth[0]
                 const token = auth[1]
-                console.log(type, token)
 
                 if (type !== "Bearer") {
                     return res.status(401).send()
@@ -72,6 +69,8 @@ export default {
                     return next();
                 }
 
+            } else {
+                return res.status(401).send()
             }
         } catch (e) {
             return res.status(403).send();

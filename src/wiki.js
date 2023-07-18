@@ -9,26 +9,39 @@ async function getWiki(query) {
         const searchArt = await axios.get(`https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&utf8=1&srsearch=${query}`);
 
         const articles = searchArt.data.query.search;
-        console.log("articles", articles)
+        //console.log("articles: ", articles)
 
         if (articles.length > 0) {
             const articleTitle = articles[0].title;
             console.log("articleTitle: ", articleTitle)
             const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(articleTitle)}`;
             console.log("Izvodi se !!!!!!!! ", articleUrl)
-            let imageUrl = await getWikipediaImageUrl(articleTitle);
 
-            console.log("imageUrl u articles: ", imageUrl)
+            const imgResponse = await axios.get(`https://en.wikipedia.org/wiki/${encodeURIComponent(articleTitle)}`);
+            const $ = load(imgResponse.data)
+            const imageUrl = $(".infobox-image img").attr("src");
+            let paragraphs = [];
+            $("p").each((index, element) => {
+                if ($(element).next().is("h1, h2, h3, h4, h5, h6")) {
+                    return false;
+                }
 
-            if (typeof (imageUrl) == "undefined") {
-                imageUrl = "/img/placeholder.5aba16cd.jpg"
-            }
+                const current = $(element).text().trim()
 
-            console.log("imageUrl u articles nakon if-a: ", imageUrl)
+                if (current) {
+                    paragraphs.push(current);
+                }
+            });
+
+            const birth = $('.bday').text().trim();;
+
+            console.log(birth);
 
             return {
-                articleUrl: articleUrl,
-                imageUrl: imageUrl
+                authorUrl: imageUrl,
+                name: articleTitle,
+                birth: birth,
+                description: paragraphs
             };
         }
     } catch (error) {
@@ -39,22 +52,6 @@ async function getWiki(query) {
         articleUrl: "placeholder",
         imageUrl: "/img/placeholder.5aba16cd.jpg"
     };
-}
-
-async function getWikipediaImageUrl(articleTitle) {
-    try {
-        const imgResponse = await axios.get(`https://en.wikipedia.org/wiki/${encodeURIComponent(articleTitle)}`);
-        const $ = load(imgResponse.data)
-        const articleContent = $(".infobox-image img");
-        console.log("articleContent: ", articleContent)
-        const imageUrl = articleContent.attr("src")
-        console.log("imageUrl: ", imageUrl, "typeof (imageUrl) == undefined ", typeof (imageUrl) == "undefined")
-        return imageUrl;
-    } catch (error) {
-        console.error("Error retrieving Wikipedia image:", error);
-    }
-
-    return "/img/placeholder.5aba16cd.jpg";
 }
 
 export {

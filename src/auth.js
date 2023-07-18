@@ -6,7 +6,6 @@ import "dotenv/config";
 
 (async () => {
     const db = await connect();
-    console.log("Izvodi li se ovo")
 
     await db.collection("users").createIndex({
         email: 1
@@ -73,8 +72,7 @@ export default {
                 return res.status(401).send()
             }
         } catch (e) {
-            return res.status(403).send();
-
+            return res.status(403).send(e.message);
         }
     }
 }

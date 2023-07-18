@@ -4,15 +4,57 @@ import connect from "./db.js"
 import {
     getReads
 } from "./goodreads"
+import {
+    getWiki
+} from "./wiki.js"
 import auth from "./auth.js"
+import jwt from "jsonwebtoken"
 
 const app = express()
 const port = 3000
 
 app.use(cors())
 app.use(express.json())
-
 //getReads("Oliver Twist").then((result) => console.log(result))
+//getWiki("Albert Camus").then((result) => console.log(result))
+
+app.get('/', [auth.verify], async (req, res) => {
+    const header = req.headers.authorization
+    const token = header.split(" ")
+    const decoded = jwt.decode(token[1])
+    const db = await connect()
+    const cursor = await db.collection("lists").find({
+        // @ts-ignore    
+        createdBy: decoded.email
+    })
+    const docs = await cursor.toArray()
+
+    let data = []
+
+    var mongo = require('mongodb');
+
+    for (const doc of docs) {
+        let bookIds = doc.books.map(function (id) {
+            return new mongo.ObjectId(id)
+        })
+        let pom = await db.collection("knjige").find({
+            _id: {
+                $in: bookIds
+            }
+        })
+        data.push({
+            books: await pom.toArray(),
+            list: doc
+        })
+    }
+
+    data.forEach(element => {
+        console.log(element.list)
+    });
+    res.json(data)
+})
+
+
 
 app.get('/tajna', [auth.verify], async (req, res) => {
     console.log("hello?")
@@ -33,7 +75,7 @@ app.post('/auth', async (req, res) => {
         }
         res.json(result)
     } catch (e) {
-        res.status(403).json({
+        res.status(401).json({
             error: e.message
         })
     }
@@ -53,7 +95,7 @@ app.post('/users', async (req, res) => {
 
 })
 
-app.post('/add', async (req, res) => {
+app.post('/add', [auth.verify], async (req, res) => {
 
     let upload = req.body
     console.log(upload)
@@ -97,7 +139,7 @@ app.post('/add', async (req, res) => {
 
 });
 
-app.get('/setall', async (req, res) => {
+app.get('/setall', [auth.verify], async (req, res) => {
     let db = await connect()
 
     let cursor = await db.collection("knjige").find().sort({
@@ -139,13 +181,8 @@ app.get('/setall', async (req, res) => {
 
 });
 
-app.get('/setmissing', async (req, res) => {
+app.get('/setmissing', [auth.verify], async (req, res) => {
     let db = await connect()
-
-    let id = '64b130911bbf0c4d6b7e3c08'
-
-    var mongo = require('mongodb');
-    var o_id = new mongo.ObjectId(id);
 
     let cursor = await db.collection("knjige").find().sort({
         title: 1
@@ -156,6 +193,20 @@ app.get('/setmissing', async (req, res) => {
         const docs = await cursor.toArray();
 
         for (const doc of docs) {
+            const author = await db.collection("authors").findOne({
+                name: doc.author
+            })
+            if (!author) {
+                const authorVars = await getWiki(doc.author);
+
+                console.log(authorVars)
+
+                if (authorVars) {
+                    await db.collection("authors").insertOne(authorVars)
+                }
+
+            }
+
             if (!doc.hasOwnProperty("imageUrl") || !doc.hasOwnProperty("year") || !doc.hasOwnProperty("description") ||
                 !doc.hasOwnProperty("genre") || !doc.hasOwnProperty("author") || !doc.hasOwnProperty("pages")) {
                 const readVars = await getReads(doc.title)
@@ -181,8 +232,6 @@ app.get('/setmissing', async (req, res) => {
 
 
             } else {
-                console.log(doc._id == o_id)
-
                 data.push(doc);
             }
         }
@@ -235,28 +284,41 @@ app.get('/knjige', [auth.verify], async (req, res) => {
     }
 });
 
-app.get("/knjige/:id", async (req, res) => {
+app.get("/knjige/:id", [auth.verify], async (req, res) => {
 
 
     try {
-        let id = req.params.id
+        const id = req.params.id
 
         var mongo = require('mongodb');
         var o_id = new mongo.ObjectId(id);
 
-        let db = await connect();
+        const db = await connect();
 
-        let data = await db.collection("knjige").findOne({
+        const book = await db.collection("knjige").findOne({
             _id: o_id
 
         })
+        const searchTerm = book.author
+            .replace(/\s*\.\s*/g, ".*");
+        const termReg = new RegExp(searchTerm, "i");
+
+        const author = await db.collection("authors").findOne({
+            name: termReg
+        });
+
+        const data = {
+            author: author,
+            book: book
+        }
+
+        console.log(data)
         res.json(data)
 
     } catch (e) {
         console.error("Error:", e)
     }
-
-
 })
+
 
 app.listen(port, () => console.log(`Slušam na portu ${port}!`))

@@ -3,6 +3,35 @@ import {
     load
 } from 'cheerio';
 
+function toNumber(str) {
+
+    let finalString = ""
+
+    console.log(str)
+
+    for (let index = 0; index < str.length; index++) {
+        const element = str[index];
+        console.log(element)
+        if (checkString(element)) {
+            finalString += element
+        }
+
+    }
+    console.log(finalString)
+    return finalString
+}
+
+function checkString(str) {
+    return !Number.isNaN(Number(str));
+}
+
+function toMonth(str) {
+    const monthRegex = /(January|February|March|April|May|June|July|August|September|October|November|December)/i;
+    console.log(str)
+    const match = monthRegex.exec(str);
+    return match ? match[0] : "";
+}
+
 async function getWiki(query) {
 
     try {
@@ -32,15 +61,39 @@ async function getWiki(query) {
                     paragraphs.push(current);
                 }
             });
+            const bornRow = $('th.infobox-label:contains("Born")');
+            const birth = bornRow
+                .next('td.infobox-data')
+                .contents()
+                // @ts-ignore
+                .filter((_, el) => !$(el).attr('style') || !$(el).attr('style').includes('display:none'))
+                .text()
+                .trim();
+            const birthArray = birth.split(" ")
 
-            const birth = $('.bday').text().trim();;
+            console.log(birthArray);
 
-            console.log(birth);
+            let counter = 0;
+            let birthDate = ""
+            birthArray.forEach(element => {
+
+                if (toMonth(element)) {
+                    birthDate += toMonth(element) + " "
+                }
+                if (toNumber(element)) {
+                    birthDate += toNumber(element) + " "
+                }
+                console.log(birthDate)
+
+                if (counter > 2) {
+                    return
+                }
+            });
 
             return {
                 authorUrl: imageUrl,
-                name: articleTitle,
-                birth: birth,
+                name: query,
+                birth: birthDate.trim(),
                 description: paragraphs
             };
         }

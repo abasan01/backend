@@ -22,7 +22,6 @@ export default {
 
         const doc = {
             email: userData.email,
-            name: userData.name,
             password: await bcrypt.hash(userData.password, 8)
         }
         try {

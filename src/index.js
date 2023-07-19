@@ -16,10 +16,67 @@ const port = 3000
 app.use(cors())
 app.use(express.json())
 //getReads("Oliver Twist").then((result) => console.log(result))
-//getWiki("Albert Camus").then((result) => console.log(result))
+//getWiki("J. D. Salinger").then((result) => console.log(result))
+
+app.post('/liste', [auth.verify], async (req, res) => {
+    try {
+        const newList = req.body
+        const header = req.headers.authorization
+        const token = header.split(" ")
+        const decoded = jwt.decode(token[1])
+        console.log(decoded)
+        const db = await connect()
+
+        const data = await db.collection("lists").insertOne({
+            name: newList.name,
+            books: newList.books,
+            // @ts-ignore
+            createdBy: decoded.email
+        })
+
+        console.log(data)
+
+        res.json(data)
+    } catch (e) {
+        console.error(e)
+    }
+})
+
+app.get('/liste', [auth.verify], async (req, res) => {
+    const db = await connect()
+    const cursor = await db.collection("lists").find({
+        public: true
+    })
+    const docs = await cursor.toArray()
+
+    let data = []
+
+    var mongo = require('mongodb');
+
+    for (const doc of docs) {
+        let bookIds = doc.books.map(function (id) {
+            return new mongo.ObjectId(id)
+        })
+        let pom = await db.collection("knjige").find({
+            _id: {
+                $in: bookIds
+            }
+        })
+        data.push({
+            books: await pom.toArray(),
+            list: doc
+        })
+    }
+
+    data.forEach(element => {
+        console.log(element.list)
+    });
+    res.json(data)
+})
 
 app.get('/', [auth.verify], async (req, res) => {
     const header = req.headers.authorization
+    console.log(header)
     const token = header.split(" ")
     const decoded = jwt.decode(token[1])
     const db = await connect()
@@ -53,8 +110,6 @@ app.get('/', [auth.verify], async (req, res) => {
     });
     res.json(data)
 })
-
-
 
 app.get('/tajna', [auth.verify], async (req, res) => {
     console.log("hello?")
@@ -193,19 +248,7 @@ app.get('/setmissing', [auth.verify], async (req, res) => {
         const docs = await cursor.toArray();
 
         for (const doc of docs) {
-            const author = await db.collection("authors").findOne({
-                name: doc.author
-            })
-            if (!author) {
-                const authorVars = await getWiki(doc.author);
 
-                console.log(authorVars)
-
-                if (authorVars) {
-                    await db.collection("authors").insertOne(authorVars)
-                }
-
-            }
 
             if (!doc.hasOwnProperty("imageUrl") || !doc.hasOwnProperty("year") || !doc.hasOwnProperty("description") ||
                 !doc.hasOwnProperty("genre") || !doc.hasOwnProperty("author") || !doc.hasOwnProperty("pages")) {
@@ -233,6 +276,24 @@ app.get('/setmissing', [auth.verify], async (req, res) => {
 
             } else {
                 data.push(doc);
+
+                const searchTerm = doc.author
+                    .replace(/\s*\.\s*/g, ".*");
+                const termReg = new RegExp(searchTerm, "i");
+
+                const author = await db.collection("authors").findOne({
+                    name: termReg
+                })
+                if (!author) {
+                    const authorVars = await getWiki(doc.author);
+
+                    console.log(authorVars)
+
+                    if (authorVars) {
+                        await db.collection("authors").insertOne(authorVars)
+                    }
+
+                }
             }
         }
     } catch (error) {
@@ -286,8 +347,10 @@ app.get('/knjige', [auth.verify], async (req, res) => {
 
 app.get("/knjige/:id", [auth.verify], async (req, res) => {
 
-
     try {
+        const header = req.headers.authorization
+        const token = header.split(" ")
+        const decoded = jwt.decode(token[1])
         const id = req.params.id
 
         var mongo = require('mongodb');
@@ -307,9 +370,19 @@ app.get("/knjige/:id", [auth.verify], async (req, res) => {
             name: termReg
         });
 
+        let progress = await db.collection("progress").findOne({
+            book: o_id,
+            user: decoded.email
+        })
+
+        if (!progress) {
+            progress = {}
+        }
+
         const data = {
             author: author,
-            book: book
+            book: book,
+            progress: progress
         }
 
         console.log(data)
@@ -320,5 +393,31 @@ app.get("/knjige/:id", [auth.verify], async (req, res) => {
     }
 })
 
+app.post("/knjige/:id", [auth.verify], async (req, res) => {
+
+    try {
+        const body = req.body
+        const header = req.headers.authorization
+        const token = header.split(" ")
+        const decoded = jwt.decode(token[1])
+        const id = req.params.id
+
+        var mongo = require('mongodb');
+        var o_id = new mongo.ObjectId(id);
+
+        const db = await connect();
+
+        const progress = await db.collection("napredak").insertOne({
+            bookId: o_id,
+            user: decoded.email,
+            progress: body
+        })
+
+        res.json(progress)
+
+    } catch (e) {
+        console.error("Error:", e)
+    }
+})
 
 app.listen(port, () => console.log(`Slušam na portu ${port}!`))

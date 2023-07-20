@@ -43,35 +43,60 @@ app.post('/liste', [auth.verify], async (req, res) => {
 })
 
 app.get('/liste', [auth.verify], async (req, res) => {
-    const db = await connect()
-    const cursor = await db.collection("lists").find({
-        public: true
-    })
-    const docs = await cursor.toArray()
+    try {
+        const header = req.headers.authorization
+        const token = header.split(" ")
+        const decoded = jwt.decode(token[1])
+        const id = req.params.id
 
-    let data = []
-
-    var mongo = require('mongodb');
-
-    for (const doc of docs) {
-        let bookIds = doc.books.map(function (id) {
-            return new mongo.ObjectId(id)
+        const db = await connect()
+        const cursor = await db.collection("lists").find({
+            public: true
         })
-        let pom = await db.collection("knjige").find({
-            _id: {
-                $in: bookIds
+        const docs = await cursor.toArray()
+
+        let data = []
+
+        var mongo = require('mongodb');
+
+        for (const doc of docs) {
+            let bookIds = doc.books.map(function (id) {
+                return new mongo.ObjectId(id)
+            })
+            let pom = await db.collection("knjige").find({
+                _id: {
+                    $in: bookIds
+                }
+            })
+            let pomArray = await pom.toArray()
+
+
+            for (const element of pomArray) {
+                console.log("tu")
+                const progress = await db.collection("progress").findOne({
+                    bookId: element._id,
+                    user: decoded.email
+                })
+
+                console.log(progress)
+
+                if (!progress) {
+                    element.progress = false
+                } else {
+                    element.progress = progress.progress
+                }
             }
-        })
-        data.push({
-            books: await pom.toArray(),
-            list: doc
-        })
-    }
+            data.push({
+                books: pomArray,
+                list: doc
+            })
+        }
 
-    data.forEach(element => {
-        console.log(element.list)
-    });
-    res.json(data)
+        res.json(data)
+
+    } catch (e) {
+        console.error(e)
+    }
 })
 
 app.get('/', [auth.verify], async (req, res) => {
@@ -99,8 +124,24 @@ app.get('/', [auth.verify], async (req, res) => {
                 $in: bookIds
             }
         })
+        let pomArray = await pom.toArray()
+
+
+        for (const element of pomArray) {
+            console.log("tu")
+            const progress = await db.collection("progress").findOne({
+                bookId: element._id,
+                user: decoded.email
+            })
+
+            if (!progress) {
+                element.progress = false
+            } else {
+                element.progress = progress.progress
+            }
+        }
         data.push({
-            books: await pom.toArray(),
+            books: pomArray,
             list: doc
         })
     }
@@ -308,6 +349,12 @@ app.get('/setmissing', [auth.verify], async (req, res) => {
 });
 
 app.get('/knjige', [auth.verify], async (req, res) => {
+
+    const header = req.headers.authorization
+    const token = header.split(" ")
+    const decoded = jwt.decode(token[1])
+
+    var mongo = require('mongodb');
     let searchTerm = req.query.search
     let search = {
         $and: [{}]
@@ -335,6 +382,8 @@ app.get('/knjige', [auth.verify], async (req, res) => {
         });
 
         let documents = await cursor.toArray();
+
+
         res.json(documents);
 
     } catch (error) {
@@ -371,12 +420,12 @@ app.get("/knjige/:id", [auth.verify], async (req, res) => {
         });
 
         let progress = await db.collection("progress").findOne({
-            book: o_id,
+            bookId: o_id,
             user: decoded.email
         })
 
         if (!progress) {
-            progress = {}
+            progress = false
         }
 
         const data = {
@@ -385,7 +434,6 @@ app.get("/knjige/:id", [auth.verify], async (req, res) => {
             progress: progress
         }
 
-        console.log(data)
         res.json(data)
 
     } catch (e) {
@@ -394,6 +442,37 @@ app.get("/knjige/:id", [auth.verify], async (req, res) => {
 })
 
 app.post("/knjige/:id", [auth.verify], async (req, res) => {
+
+    try {
+        const body = req.body
+
+        console.log("body: ", body)
+        const header = req.headers.authorization
+        const token = header.split(" ")
+        const decoded = jwt.decode(token[1])
+        console.log("decoded: ", decoded)
+        const id = req.params.id
+        console.log("id: ", id)
+
+        var mongo = require('mongodb');
+        var o_id = new mongo.ObjectId(id);
+
+        const db = await connect();
+
+        const progress = await db.collection("progress").insertOne({
+            bookId: o_id,
+            user: decoded.email,
+            progress: Number(body.progress)
+        })
+
+        res.json(progress)
+
+    } catch (e) {
+        console.error("Error:", e)
+    }
+})
+
+app.patch("/knjige/:id", [auth.verify], async (req, res) => {
 
     try {
         const body = req.body
@@ -407,10 +486,13 @@ app.post("/knjige/:id", [auth.verify], async (req, res) => {
 
         const db = await connect();
 
-        const progress = await db.collection("napredak").insertOne({
+        const progress = await db.collection("progress").updateOne({
             bookId: o_id,
-            user: decoded.email,
-            progress: body
+            user: decoded.email
+        }, {
+            $set: {
+                progress: Number(body.progress)
+            }
         })
 
         res.json(progress)

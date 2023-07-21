@@ -22,7 +22,8 @@ module.exports = {
     cacheDirectory: join(__dirname, 'puppeteer_cache'),
 };
 
-console.log('Puppeteer cache directory:', join(__dirname, 'puppeteer_cache'));
+
+console.log(module.exports);
 
 const app = express()
 const port = 3000

@@ -4,6 +4,8 @@ import {
 } from 'cheerio';
 import puppeteer from "puppeteer";
 
+
+
 async function getReads(query) {
 
     try {
@@ -23,7 +25,7 @@ async function getReads(query) {
 
         console.log("Očitavanje stranice")
         const browser = await puppeteer.launch({
-            headless: "new"
+            headless: false
         });
         const page = await browser.newPage();
         await page.goto(bookLink);

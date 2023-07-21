@@ -24,17 +24,58 @@ app.post('/liste', [auth.verify], async (req, res) => {
         const header = req.headers.authorization
         const token = header.split(" ")
         const decoded = jwt.decode(token[1])
-        console.log(decoded)
         const db = await connect()
 
         const data = await db.collection("lists").insertOne({
             name: newList.name,
             books: newList.books,
             // @ts-ignore
-            createdBy: decoded.email
+            createdBy: decoded.email,
+            public: false
         })
 
-        console.log(data)
+        res.json(data)
+    } catch (e) {
+        console.error(e)
+    }
+})
+
+app.patch('/liste', [auth.verify], async (req, res) => {
+    try {
+        const body = req.body
+        console.log(body.id)
+        var mongo = require('mongodb');
+        const listId = new mongo.ObjectId(body.id)
+        const db = await connect()
+
+        const data = await db.collection("lists").updateOne({
+            _id: listId
+        }, {
+            $set: {
+                public: !body.state
+            }
+        })
+
+
+        res.json(data.acknowledged)
+    } catch (e) {
+        console.error(e)
+    }
+})
+
+app.delete('/liste', [auth.verify], async (req, res) => {
+    try {
+        const body = req.query.delete
+        var mongo = require('mongodb');
+        const listId = new mongo.ObjectId(body)
+
+        console.log(listId)
+
+        const db = await connect()
+
+        const data = await db.collection("lists").deleteOne({
+            _id: listId
+        })
 
         res.json(data)
     } catch (e) {
@@ -44,10 +85,6 @@ app.post('/liste', [auth.verify], async (req, res) => {
 
 app.get('/liste', [auth.verify], async (req, res) => {
     try {
-        const header = req.headers.authorization
-        const token = header.split(" ")
-        const decoded = jwt.decode(token[1])
-        const id = req.params.id
 
         const db = await connect()
         const cursor = await db.collection("lists").find({
@@ -61,6 +98,7 @@ app.get('/liste', [auth.verify], async (req, res) => {
 
         for (const doc of docs) {
             let bookIds = doc.books.map(function (id) {
+
                 return new mongo.ObjectId(id)
             })
             let pom = await db.collection("knjige").find({
@@ -72,13 +110,9 @@ app.get('/liste', [auth.verify], async (req, res) => {
 
 
             for (const element of pomArray) {
-                console.log("tu")
                 const progress = await db.collection("progress").findOne({
                     bookId: element._id,
-                    user: decoded.email
                 })
-
-                console.log(progress)
 
                 if (!progress) {
                     element.progress = false
@@ -100,64 +134,56 @@ app.get('/liste', [auth.verify], async (req, res) => {
 })
 
 app.get('/', [auth.verify], async (req, res) => {
-    const header = req.headers.authorization
-    console.log(header)
-    const token = header.split(" ")
-    const decoded = jwt.decode(token[1])
-    const db = await connect()
-    const cursor = await db.collection("lists").find({
-        // @ts-ignore    
-        createdBy: decoded.email
-    })
-    const docs = await cursor.toArray()
-
-    let data = []
-
-    var mongo = require('mongodb');
-
-    for (const doc of docs) {
-        let bookIds = doc.books.map(function (id) {
-            return new mongo.ObjectId(id)
+    try {
+        const header = req.headers.authorization
+        const token = header.split(" ")
+        const decoded = jwt.decode(token[1])
+        const db = await connect()
+        const cursor = await db.collection("lists").find({
+            // @ts-ignore    
+            createdBy: decoded.email
         })
-        let pom = await db.collection("knjige").find({
-            _id: {
-                $in: bookIds
-            }
-        })
-        let pomArray = await pom.toArray()
+        const docs = await cursor.toArray()
 
+        let data = []
 
-        for (const element of pomArray) {
-            console.log("tu")
-            const progress = await db.collection("progress").findOne({
-                bookId: element._id,
-                user: decoded.email
+        var mongo = require('mongodb');
+
+        for (const doc of docs) {
+            let bookIds = doc.books.map(function (id) {
+                return new mongo.ObjectId(id)
             })
+            let pom = await db.collection("knjige").find({
+                _id: {
+                    $in: bookIds
+                }
+            })
+            let pomArray = await pom.toArray()
 
-            if (!progress) {
-                element.progress = false
-            } else {
-                element.progress = progress.progress
+
+            for (const element of pomArray) {
+                const progress = await db.collection("progress").findOne({
+                    bookId: element._id,
+                    // @ts-ignore
+                    user: decoded.email
+                })
+
+                if (!progress) {
+                    element.progress = false
+                } else {
+                    element.progress = progress.progress
+                }
             }
+            data.push({
+                books: pomArray,
+                list: doc
+            })
         }
-        data.push({
-            books: pomArray,
-            list: doc
-        })
+
+        res.json(data)
+    } catch (e) {
+        console.error(e)
     }
-
-    data.forEach(element => {
-        console.log(element.list)
-    });
-    res.json(data)
-})
-
-app.get('/tajna', [auth.verify], async (req, res) => {
-    console.log("hello?")
-    res.json({
-        message: "ovo je tajna" + req.jwt.email
-    })
-
 })
 
 app.post('/auth', async (req, res) => {
@@ -193,65 +219,23 @@ app.post('/users', async (req, res) => {
 
 app.post('/add', [auth.verify], async (req, res) => {
 
-    let upload = req.body
-    console.log(upload)
-
-    let db = await connect();
-
-    let data = await db.collection("knjige").insertOne(upload)
-
-    if (data && data.acknowledged) {
-
-        const readVars = await getReads(upload.title)
-
-        if (readVars) {
-            console.log(data.insertedId)
-            await db.collection("knjige").updateOne({
-                _id: data.insertedId
-            }, {
-                $set: {
-                    title: readVars.title,
-                    imageUrl: readVars.imageUrl,
-                    year: readVars.year,
-                    description: readVars.description,
-                    genre: readVars.genre,
-                    author: readVars.author,
-                    pages: readVars.pages
-                }
-            });
-            console.log(data.insertedId)
-            let result = await db.collection("knjige").findOne({
-                _id: data.insertedId
-            })
-            console.log(result)
-            res.json(result)
-
-        }
-    } else {
-        res.json({
-            status: "fail"
-        })
-    }
-
-});
-
-app.get('/setall', [auth.verify], async (req, res) => {
-    let db = await connect()
-
-    let cursor = await db.collection("knjige").find().sort({
-        title: 1
-    })
-
-    let data = []
     try {
-        const docs = await cursor.toArray();
 
-        for (const doc of docs) {
-            const readVars = await getReads(doc.title)
-            if (readVars) {
+        let upload = req.body
+        console.log(upload)
 
+        let db = await connect();
+
+        let data = await db.collection("knjige").insertOne(upload)
+
+        if (data && data.acknowledged) {
+
+            const readVars = await getReads(upload.title)
+
+            if (readVars && readVars.title && readVars.imageUrl && readVars.year && readVars.description && readVars.genre && readVars.author && readVars.pages) {
+                console.log(data.insertedId)
                 await db.collection("knjige").updateOne({
-                    _id: doc._id
+                    _id: data.insertedId
                 }, {
                     $set: {
                         title: readVars.title,
@@ -263,20 +247,42 @@ app.get('/setall', [auth.verify], async (req, res) => {
                         pages: readVars.pages
                     }
                 });
+                console.log(data.insertedId)
+                let result = await db.collection("knjige").findOne({
+                    _id: data.insertedId
+                })
+
+                const author = await db.collection("authors").findOne({
+                    name: result.author
+                })
+                if (!author) {
+                    const authorVars = await getWiki(result.author);
+
+                    console.log(authorVars)
+
+                    if (authorVars) {
+                        await db.collection("authors").insertOne(authorVars)
+                    }
+
+                }
+
+                console.log(result)
+                res.json(result)
+
             }
-            data.push(doc);
+        } else {
+            res.json({
+                status: "fail"
+            })
         }
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({
-            error: "Internal Server Error"
-        });
+    } catch (e) {
+        console.error(e)
     }
-    console.log("Done!")
-    res.json(data);
 
 });
 
+
+// @ts-ignore
 app.get('/setmissing', [auth.verify], async (req, res) => {
     let db = await connect()
 
@@ -318,12 +324,8 @@ app.get('/setmissing', [auth.verify], async (req, res) => {
             } else {
                 data.push(doc);
 
-                const searchTerm = doc.author
-                    .replace(/\s*\.\s*/g, ".*");
-                const termReg = new RegExp(searchTerm, "i");
-
                 const author = await db.collection("authors").findOne({
-                    name: termReg
+                    name: doc.author
                 })
                 if (!author) {
                     const authorVars = await getWiki(doc.author);
@@ -349,32 +351,28 @@ app.get('/setmissing', [auth.verify], async (req, res) => {
 });
 
 app.get('/knjige', [auth.verify], async (req, res) => {
-
-    const header = req.headers.authorization
-    const token = header.split(" ")
-    const decoded = jwt.decode(token[1])
-
-    var mongo = require('mongodb');
-    let searchTerm = req.query.search
-    let search = {
-        $and: [{}]
-    }
-    if (searchTerm) {
-        let searchArray = String(searchTerm).split(" ")
-
-        searchArray.forEach((term) => {
-            let termReg = RegExp(term, "i")
-            let or = {
-                $or: [{
-                    title: termReg
-                }, {
-                    author: termReg
-                }]
-            }
-            search.$and.push(or)
-        })
-    }
     try {
+
+        let searchTerm = req.query.search
+        let search = {
+            $and: [{}]
+        }
+        if (searchTerm) {
+            let searchArray = String(searchTerm).split(" ")
+
+            searchArray.forEach((term) => {
+                let termReg = RegExp(term, "i")
+                let or = {
+                    $or: [{
+                        title: termReg
+                    }, {
+                        author: termReg
+                    }]
+                }
+                search.$and.push(or)
+            })
+        }
+
         let db = await connect();
 
         let cursor = db.collection("knjige").find(search).sort({
@@ -421,6 +419,7 @@ app.get("/knjige/:id", [auth.verify], async (req, res) => {
 
         let progress = await db.collection("progress").findOne({
             bookId: o_id,
+            // @ts-ignore
             user: decoded.email
         })
 
@@ -461,6 +460,7 @@ app.post("/knjige/:id", [auth.verify], async (req, res) => {
 
         const progress = await db.collection("progress").insertOne({
             bookId: o_id,
+            // @ts-ignore
             user: decoded.email,
             progress: Number(body.progress)
         })
@@ -488,6 +488,7 @@ app.patch("/knjige/:id", [auth.verify], async (req, res) => {
 
         const progress = await db.collection("progress").updateOne({
             bookId: o_id,
+            // @ts-ignore
             user: decoded.email
         }, {
             $set: {

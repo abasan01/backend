@@ -31,7 +31,7 @@ async function getReads(query) {
         await page.goto(bookLink);
 
         await page.waitForSelector('.BookCover__image', {
-            timeout: 7000
+            timeout: 10000
         });
 
         const htmlContent = await page.content();

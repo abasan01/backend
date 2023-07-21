@@ -17,7 +17,6 @@ import "dotenv/config";
 
 export default {
     async registerUser(userData) {
-        console.log(userData)
         const db = await connect()
 
         const doc = {

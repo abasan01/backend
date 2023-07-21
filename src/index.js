@@ -19,8 +19,10 @@ const {
  */
 module.exports = {
     // Changes the cache location for Puppeteer.
-    cacheDirectory: join(__dirname, 'src', 'puppeteer_cache'),
+    cacheDirectory: join(__dirname, 'puppeteer_cache'),
 };
+
+console.log('Puppeteer cache directory:', join(__dirname, 'puppeteer_cache'));
 
 const app = express()
 const port = 3000

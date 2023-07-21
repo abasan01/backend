@@ -4,8 +4,6 @@ import {
 } from 'cheerio';
 import puppeteer from "puppeteer";
 
-
-
 async function getReads(query) {
 
     try {

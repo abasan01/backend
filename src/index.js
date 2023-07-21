@@ -10,20 +10,6 @@ import {
 import auth from "./auth.js"
 import jwt from "jsonwebtoken"
 
-const {
-    join
-} = require('path');
-
-/**
- * @type {import("puppeteer").Configuration}
- */
-module.exports = {
-    // Changes the cache location for Puppeteer.
-    cacheDirectory: join(__dirname, 'puppeteer_cache'),
-};
-
-
-console.log(module.exports);
 
 const app = express()
 const port = 3000

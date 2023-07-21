@@ -38,7 +38,7 @@ export default {
 
         if (user && user.password && (await bcrypt.compare(password, user.password))) {
 
-            const token = jwt.sign(user, String(process.env.JWT_SECRET), {
+            const token = jwt.sign(user, "tajna_env", {
                 algorithm: "HS512",
                 expiresIn: "1 day"
             })
@@ -62,7 +62,7 @@ export default {
                 if (type !== "Bearer") {
                     return res.status(401).send()
                 } else {
-                    req.jwt = jwt.verify(token, String(process.env.JWT_SECRET));
+                    req.jwt = jwt.verify(token, "tajna_env");
                     return next();
                 }
 

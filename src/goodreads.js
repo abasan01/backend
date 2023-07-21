@@ -2,7 +2,9 @@ import axios from "axios";
 import {
     load
 } from 'cheerio';
-import puppeteer from "puppeteer";
+import puppeteer, {
+    executablePath
+} from "puppeteer";
 
 
 
@@ -25,7 +27,13 @@ async function getReads(query) {
 
         console.log("Očitavanje stranice")
         const browser = await puppeteer.launch({
-            headless: false
+            args: [
+                "--disable-setuid-sandbox",
+                "--no-sandbox",
+                "--single-process",
+                "--no-zygote",
+            ],
+            executablePath: process.env.NODE_ENV === "produiction" ? process.env.PUPPETEER_EXECUTABLE_PATH : puppeteer.executablePath()
         });
         const page = await browser.newPage();
         await page.goto(bookLink);

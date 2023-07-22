@@ -4,6 +4,7 @@ import {
 import "dotenv/config";
 
 console.log(process.env.JWT_SECRET)
+console.log(JWT_SECRET)
 const connection_string = `mongodb+srv://andrija3000:admin@knjigogram.m2asola.mongodb.net/?retryWrites=true&w=majority`;
 
 let client = new MongoClient(connection_string);

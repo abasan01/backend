@@ -3,6 +3,10 @@ import connect from "./db"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import "dotenv/config";
+require('dotenv').config();
+
+console.log(process.env.JWT_SECRET);
+
 
 (async () => {
     const db = await connect();

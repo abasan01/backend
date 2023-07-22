@@ -1,6 +1,8 @@
 FROM ghcr.io/puppeteer/puppeteer:19.7.2
 
-RUN --mount=type=secret,id=_env,dst=.env cat .env
+COPY .env ./.env
+
+RUN chmod 644 .env
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable 
